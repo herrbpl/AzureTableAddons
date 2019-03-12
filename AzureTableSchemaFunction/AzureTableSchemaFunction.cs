@@ -13,7 +13,7 @@ using System.Net;
 using Newtonsoft.Json.Linq;
 using System.Linq;
 using System.Net.Http.Headers;
-using System.Collections.Generic;
+
 
 namespace AzureTableAddons
 {
@@ -25,7 +25,7 @@ namespace AzureTableAddons
 
         [FunctionName("AzureTableSchemaFunction")]
         public static async Task<HttpResponseMessage> Run(
-            [HttpTrigger(AuthorizationLevel.Function, "get", "post", Route = "{datasetname}")] HttpRequest req,
+            [HttpTrigger(AuthorizationLevel.Function, "get", Route = "{datasetname}")] HttpRequest req,
             string datasetname,
             ILogger log, ExecutionContext context)
         {            
@@ -205,6 +205,88 @@ namespace AzureTableAddons
 
 
             
+        }
+
+
+        [FunctionName("AzureTableSchemaFunctionSchema")]
+        public static async Task<HttpResponseMessage> RunSchema(
+            [HttpTrigger(AuthorizationLevel.Function, "get", Route = "{datasetname}/schema")] HttpRequest req,
+            string datasetname,
+            ILogger log, ExecutionContext context)
+        {
+
+            var baseconfig = new ConfigurationBuilder()
+           .SetBasePath(context.FunctionAppDirectory)
+           .AddJsonFile("local.settings.json", optional: true, reloadOnChange: true)
+           .AddEnvironmentVariables()
+           .Build();
+
+            var configOptions = new ConfigurationOptions();
+            baseconfig.Bind("AzureTableSchema", configOptions);
+            if (configOptions.Environment == null || configOptions.Environment == "")
+            {
+                configOptions.Environment = baseconfig["ASPNETCORE_ENVIRONMENT"];
+            }
+
+            if (configOptions.ConnectionString == null || configOptions.ConnectionString == "")
+            {
+                log.LogError($"ConnectionString is not specified");
+                return new HttpResponseMessage(HttpStatusCode.InternalServerError)
+                {
+                    Content = new StringContent("{ 'error': 'service misconfiguration' }")
+                };
+            }
+
+            Configuration configuration = new Configuration(configOptions);
+
+            string datasetconfigStr = null;
+            try
+            {
+                datasetconfigStr = await configuration.GetConfigurationAsync(datasetname);
+            }
+            catch (Exception e)
+            {
+                log.LogError(e, $"Unable to query config string with key '{datasetname}'");
+                return new HttpResponseMessage(HttpStatusCode.InternalServerError)
+                {
+                    Content = new StringContent("{ 'error': 'dataset not found' }")
+                };
+            }
+
+            if (datasetconfigStr == null)
+            {
+                log.LogError($"Unable to find config string with key '{datasetname}'");
+                return new HttpResponseMessage(HttpStatusCode.NotFound)
+                {
+                    Content = new StringContent("{ 'error': 'dataset not found' }")
+                };
+            }
+
+            AzureTableSchema schema = null;
+
+            try
+            {
+                schema = JsonConvert.DeserializeObject<AzureTableSchema>(datasetconfigStr, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Include });
+
+            }
+            catch (Exception e)
+            {
+                log.LogError(e, $"Unable to deserialize config string with key '{datasetname}'");
+                return new HttpResponseMessage(HttpStatusCode.InternalServerError)
+                {
+                    Content = new StringContent("{ 'error': 'service misconfiguration' }")
+                };
+            }
+
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(JsonConvert.SerializeObject(schema.Columns, new JsonSerializerSettings { NullValueHandling = NullValueHandling.Include }))
+            };
+            
+
+
+
+
         }
     }
 }
