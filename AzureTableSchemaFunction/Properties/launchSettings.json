@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "Test": {
+      "commandName": "Project",
+      "environmentVariables": {
+        "ENVIRONMENT": "Development"
+      }
+    }
+  }
+}
