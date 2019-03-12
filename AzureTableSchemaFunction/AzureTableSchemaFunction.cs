@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Microsoft.Azure.WebJobs;
 using Microsoft.Azure.WebJobs.Extensions.Http;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using Microsoft.Extensions.Configuration;
@@ -13,7 +14,8 @@ using System.Net;
 using Newtonsoft.Json.Linq;
 using System.Linq;
 using System.Net.Http.Headers;
-
+using System.Collections.Generic;
+using Microsoft.AspNetCore.WebUtilities;
 
 namespace AzureTableAddons
 {
@@ -101,8 +103,40 @@ namespace AzureTableAddons
                 Content = new PushStreamContent(async (outputStream, httpContext, transportContext) =>
                 {
 
+                    // Add query parameters passby
+                    // https://benjii.me/2017/04/parse-modify-query-strings-asp-net-core/
 
-                    HttpRequestMessage r = new HttpRequestMessage(HttpMethod.Get, schema.SourceUrl);
+                    var uri = new Uri(schema.SourceUrl);
+                    var baseUri = uri.GetComponents(UriComponents.Scheme | UriComponents.Host | UriComponents.Port | UriComponents.Path, UriFormat.UriEscaped);
+
+                    var query = QueryHelpers.ParseQuery(uri.Query);
+
+                    var qb = new QueryBuilder();
+                    foreach (var item in query)
+                    {
+                        qb.Add(item.Key, item.Value.AsEnumerable());
+                    }
+
+                    
+
+                    List<string> allowedParameters = new List<string>()
+                    {
+                        "$filter", "$orderby", "$select", "$skip", "$top"
+                    };
+                    
+                    foreach (var item in req.Query)
+                    {
+                        if (allowedParameters.Contains(item.Key) && !query.ContainsKey(item.Key)) // do not allow to overwrite existing values
+                        {
+                            qb.Add(item.Key, item.Value.AsEnumerable());
+                        }
+                    }
+
+                    var targetUrl = baseUri + qb.ToQueryString();
+
+                    
+                    //HttpRequestMessage r = new HttpRequestMessage(HttpMethod.Get, schema.SourceUrl);
+                    HttpRequestMessage r = new HttpRequestMessage(HttpMethod.Get, targetUrl);
                     r.Headers.Add("Accept", "application / json; odata = nometadata");
 
                     
