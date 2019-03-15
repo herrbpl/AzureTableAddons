@@ -25,9 +25,9 @@ namespace AzureTableAddons
     {
         private static HttpClient httpClient = new HttpClient();        
 
-        [FunctionName("AzureTableSchemaFunction")]
+        [FunctionName("AzureTableSchemaFunction")]        
         public static async Task<HttpResponseMessage> Run(
-            [HttpTrigger(AuthorizationLevel.Function, "get", Route = "{datasetname}")] HttpRequest req,
+            [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "{datasetname}")] HttpRequest req,
             string datasetname,
             ILogger log, ExecutionContext context)
         {            
@@ -179,12 +179,14 @@ namespace AzureTableAddons
                                     JObject obj = JObject.Load(jsonTextReader);
 
                                     // add missing columns
-
-                                    foreach (var item in schema.Columns)
+                                    if (schema.AddMissing)
                                     {
-                                        if (!obj.ContainsKey(item.Key))
+                                        foreach (var item in schema.Columns)
                                         {
-                                            obj.Add(item.Key, item.Value.Default);
+                                            if (!obj.ContainsKey(item.Key))
+                                            {
+                                                obj.Add(item.Key, item.Value.Default);
+                                            }
                                         }
                                     }
 
@@ -244,7 +246,7 @@ namespace AzureTableAddons
 
         [FunctionName("AzureTableSchemaFunctionSchema")]
         public static async Task<HttpResponseMessage> RunSchema(
-            [HttpTrigger(AuthorizationLevel.Function, "get", Route = "{datasetname}/schema")] HttpRequest req,
+            [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "{datasetname}/schema")] HttpRequest req,
             string datasetname,
             ILogger log, ExecutionContext context)
         {

@@ -21,6 +21,8 @@ namespace AzureTableAddons
         public string SourceUrl { get; set; } = "";
         [JsonProperty(PropertyName = "removeunspecified")]
         public bool RemoveUnspecified { get; set; } = false;
+        [JsonProperty(PropertyName = "addmissing")]
+        public bool AddMissing { get; set; } = true;
         [JsonProperty(PropertyName = "columns")]
         public IDictionary<string, AzureTableColumn> Columns = new Dictionary<string,AzureTableColumn>();
     }
